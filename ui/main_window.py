@@ -98,6 +98,14 @@ class MainWindow:
         self.title_label.pack(pady=(25, 5))
         self.title_label.bind("<ButtonPress-1>", self.start_move)
 
+        self.status_label = ctk.CTkLabel(
+            self.main_frame,
+            text=self._("status_paused"),
+            font=ctk.CTkFont(size=13),
+            text_color="gray"
+        )
+        self.status_label.pack(pady=(0, 15))
+
         self.countdown_label = ctk.CTkLabel(
             self.main_frame,
             text="00:00",
@@ -106,14 +114,6 @@ class MainWindow:
         )
         self.countdown_label.pack(pady=(0, 0))
         self.countdown_label.bind("<ButtonPress-1>", self.start_move)
-
-        self.status_label = ctk.CTkLabel(
-            self.main_frame,
-            text=self._("status_paused"),
-            font=ctk.CTkFont(size=13),
-            text_color="gray"
-        )
-        self.status_label.pack(pady=(0, 15))
 
         self.rule_frame = ctk.CTkFrame(
             self.main_frame,
