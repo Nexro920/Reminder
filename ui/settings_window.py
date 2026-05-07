@@ -8,6 +8,7 @@ from core.i18n import i18n_manager
 from .notification import NotificationWindow
 from utils.tray import tray_manager
 from utils.autostart import AutoStartManager
+from utils.ui_utils import apply_windows_transparency, WindowDragger
 
 class ModernDropdown(ctk.CTkFrame):
     """自定义现代下拉框：解决原生组件无圆角、宽度不一致的硬伤"""
@@ -42,10 +43,7 @@ class ModernDropdown(ctk.CTkFrame):
         self.dropdown_window.attributes('-topmost', True)
 
         # Windows 透明防撞色支持圆角
-        if sys.platform.startswith("win"):
-            magic_color = "#000001"
-            self.dropdown_window.configure(fg_color=magic_color)
-            self.dropdown_window.wm_attributes("-transparentcolor", magic_color)
+        apply_windows_transparency(self.dropdown_window)
 
         # 计算并严格对齐宽度和位置
         x = self.winfo_rootx()
@@ -102,16 +100,18 @@ class SettingsWindow:
         self._ = i18n_manager.get_text
 
         self.top = ctk.CTkToplevel(parent)
+        # self.top.deiconify()
+        # self.top.lift()
         self.top.resizable(False, False)
-        self.top.attributes('-topmost', False)
+        self.top.attributes('-topmost', True)
+        # self.top.attributes('-topmost', False)
+        self.top.focus_force()
         self.top.grab_set()
+        self.top.after(200, lambda: self.top.attributes('-topmost', False))
 
         self.top.overrideredirect(True)
 
-        if sys.platform.startswith("win"):
-            magic_color = "#000001"
-            self.top.configure(fg_color=magic_color)
-            self.top.wm_attributes("-transparentcolor", magic_color)
+        apply_windows_transparency(self.top)
 
         self.padding = config_manager.get_app_config("padding")
         self.spacing = config_manager.get_app_config("spacing")
@@ -122,8 +122,8 @@ class SettingsWindow:
         self.language_var = ctk.StringVar(value=config_manager.get("language"))
         self.auto_start_var = ctk.BooleanVar(value=AutoStartManager.is_auto_start_enabled())
 
-        self._x = 0
-        self._y = 0
+        # self._x = 0
+        # self._y = 0
 
         self.setup_ui()
         self.center_window()
@@ -138,14 +138,14 @@ class SettingsWindow:
         )
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.main_frame.bind("<ButtonPress-1>", self.start_move)
-        self.main_frame.bind("<B1-Motion>", self.do_move)
+        # self.main_frame.bind("<ButtonPress-1>", self.start_move)
+        # self.main_frame.bind("<B1-Motion>", self.do_move)
 
         title_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         title_frame.pack(fill=tk.X, padx=15, pady=(15, 10))
 
-        title_frame.bind("<ButtonPress-1>", self.start_move)
-        title_frame.bind("<B1-Motion>", self.do_move)
+        # title_frame.bind("<ButtonPress-1>", self.start_move)
+        # title_frame.bind("<B1-Motion>", self.do_move)
 
         title_label = ctk.CTkLabel(
             title_frame,
@@ -154,7 +154,7 @@ class SettingsWindow:
             text_color=("#1A1A1A", "#E0E0E0")
         )
         title_label.pack(side=tk.LEFT)
-        title_label.bind("<ButtonPress-1>", self.start_move)
+        # title_label.bind("<ButtonPress-1>", self.start_move)
 
         close_btn = ctk.CTkButton(
             title_frame,
@@ -233,6 +233,11 @@ class SettingsWindow:
             font=ctk.CTkFont(size=14, weight="bold")
         )
         self.save_button.pack(fill=tk.X)
+        WindowDragger(self.top, [
+            self.main_frame,
+            title_frame,
+            title_label
+        ])
 
     def start_move(self, event):
         self._x = event.x

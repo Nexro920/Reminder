@@ -1,6 +1,7 @@
 import tkinter as tk
 import sys
 import customtkinter as ctk
+from utils.ui_utils import apply_windows_transparency
 
 class NotificationWindow:
     """完美融合主UI的 Toast 浮窗提醒 (含高度与按钮视觉优化)"""
@@ -21,10 +22,7 @@ class NotificationWindow:
         self.top.attributes('-topmost', True)
 
         # 统一采用主界面的透明防撞色方案
-        if sys.platform.startswith("win"):
-            magic_color = "#000001"
-            self.top.configure(fg_color=magic_color)
-            self.top.wm_attributes("-transparentcolor", magic_color)
+        apply_windows_transparency(self.top)
 
         self.setup_ui(title, message)
         self.position_and_animate()

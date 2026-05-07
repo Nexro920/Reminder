@@ -8,6 +8,7 @@ from core.i18n import i18n_manager
 from core.events import app_queue, AppEvent, AppState
 from .notification import NotificationWindow
 from .settings_window import SettingsWindow
+from utils.ui_utils import apply_windows_transparency, WindowDragger
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -20,6 +21,7 @@ class MainWindow:
         self.is_standby = False
         self.remaining_time = 0
         self.target_datetime = None
+        self.settings_window = None
 
         # 统一控制相关的变量
         self.after_id = None
@@ -60,11 +62,7 @@ class MainWindow:
 
         self.root.overrideredirect(True)
 
-        import sys
-        if sys.platform.startswith("win"):
-            magic_color = "#000001"
-            self.root.configure(fg_color=magic_color)
-            self.root.wm_attributes("-transparentcolor", magic_color)
+        apply_windows_transparency(self.root)
 
         self.main_frame = ctk.CTkFrame(
             self.root,
@@ -75,8 +73,8 @@ class MainWindow:
         )
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.main_frame.bind("<ButtonPress-1>", self.start_move)
-        self.main_frame.bind("<B1-Motion>", self.do_move)
+        # self.main_frame.bind("<ButtonPress-1>", self.start_move)
+        # self.main_frame.bind("<B1-Motion>", self.do_move)
 
         self.close_btn = ctk.CTkButton(
             self.main_frame,
@@ -97,7 +95,7 @@ class MainWindow:
             text_color="gray"
         )
         self.title_label.pack(pady=(25, 5))
-        self.title_label.bind("<ButtonPress-1>", self.start_move)
+        # self.title_label.bind("<ButtonPress-1>", self.start_move)
 
         self.status_label = ctk.CTkLabel(
             self.main_frame,
@@ -114,7 +112,7 @@ class MainWindow:
             text_color=self.COLOR_NEUTRAL
         )
         self.countdown_label.pack(pady=(0, 0))
-        self.countdown_label.bind("<ButtonPress-1>", self.start_move)
+        # self.countdown_label.bind("<ButtonPress-1>", self.start_move)
 
         self.rule_frame = ctk.CTkFrame(
             self.main_frame,
@@ -122,7 +120,7 @@ class MainWindow:
             fg_color=("#F5F5F5", "#333333")
         )
         self.rule_frame.pack(pady=(0, 25))
-        self.rule_frame.bind("<ButtonPress-1>", self.start_move)
+        # self.rule_frame.bind("<ButtonPress-1>", self.start_move)
 
         self.rule_label = ctk.CTkLabel(
             self.rule_frame,
@@ -131,7 +129,7 @@ class MainWindow:
             text_color=("darkgray", "#888888")
         )
         self.rule_label.pack(padx=14, pady=4)
-        self.rule_label.bind("<ButtonPress-1>", self.start_move)
+        # self.rule_label.bind("<ButtonPress-1>", self.start_move)
 
         button_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         button_frame.pack(fill=tk.X, padx=40, pady=10)
@@ -157,15 +155,22 @@ class MainWindow:
             font=ctk.CTkFont(size=13)
         )
         self.settings_button.pack(fill=tk.X)
+        WindowDragger(self.root, [
+            self.main_frame,
+            self.title_label,
+            self.countdown_label,
+            self.rule_frame,
+            self.rule_label
+        ])
 
-    def start_move(self, event):
-        self._x = event.x
-        self._y = event.y
-
-    def do_move(self, event):
-        x = self.root.winfo_x() + (event.x - self._x)
-        y = self.root.winfo_y() + (event.y - self._y)
-        self.root.geometry(f"+{x}+{y}")
+    # def start_move(self, event):
+    #     self._x = event.x
+    #     self._y = event.y
+    #
+    # def do_move(self, event):
+    #     x = self.root.winfo_x() + (event.x - self._x)
+    #     y = self.root.winfo_y() + (event.y - self._y)
+    #     self.root.geometry(f"+{x}+{y}")
 
     def update_ui_text(self):
         self.title_label.configure(text=f"💧 {self._('app_name')}")
@@ -209,21 +214,58 @@ class MainWindow:
         finally:
             self.queue_after_id = self.root.after(100, self.process_queue)
 
+    def bring_to_front(self, window):
+        """
+        强制将窗口提升到最前层
+        兼容 overrideredirect + Windows
+        """
+        try:
+            window.deiconify()
+            # 提升层级
+            window.lift()
+            # 临时置顶，强制抢占 Z-Order
+            window.attributes("-topmost", True)
+            # 获取焦点
+            window.focus_force()
+            # 100ms 后取消 topmost
+            # 否则会一直压着其他窗口
+            window.after(100, lambda: window.attributes("-topmost", False))
+
+        except Exception as e:
+            print(f"bring_to_front error: {e}")
+
+
     def toggle_window(self):
         if self.is_hidden:
-            self.root.deiconify()
             self.is_hidden = False
+            self.bring_to_front(self.root)
         else:
             self.root.withdraw()
             self.is_hidden = True
+
         AppState.is_window_hidden = self.is_hidden
 
     def open_settings(self):
-        if self.is_hidden:
-            self.toggle_window()
-        settings = SettingsWindow(self.root)
-        self.root.wait_window(settings.top)
-        self.sync_config_to_ui()
+        # if self.is_hidden:
+        #     self.toggle_window()
+
+        # 如果设置窗口已存在
+        if self.settings_window and self.settings_window.top.winfo_exists():
+            # 强制拉到前面
+            self.bring_to_front(self.settings_window.top)
+            return
+        # 创建新窗口
+        self.settings_window = SettingsWindow(self.root)
+
+        def on_close():
+            self.sync_config_to_ui()
+            self.settings_window = None
+
+        self.settings_window.top.protocol("WM_DELETE_WINDOW", on_close)
+        self.settings_window.top.bind(
+            "<Destroy>",
+            lambda e: on_close()
+        )
 
     def sync_config_to_ui(self):
         self.interval_var.set(config_manager.get("interval"))
