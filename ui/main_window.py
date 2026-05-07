@@ -19,6 +19,7 @@ class MainWindow:
         self.is_running = False
         self.is_standby = False
         self.remaining_time = 0
+        self.target_datetime = None
 
         # 统一控制相关的变量
         self.after_id = None
@@ -245,16 +246,18 @@ class MainWindow:
         except ValueError:
             return False
 
-    def get_seconds_to_start(self):
+    def get_target_datetime_for_standby(self):
+        """获取静默等待模式下的绝对目标时间点"""
         try:
             now = datetime.datetime.now()
             start_time = datetime.datetime.strptime(self.start_time_var.get(), "%H:%M").time()
             target = datetime.datetime.combine(now.date(), start_time)
+            # 如果当前时间已经过了今天的开始时间，说明要等到明天的这个时间
             if now.time() >= start_time:
                 target += datetime.timedelta(days=1)
-            return int((target - now).total_seconds())
+            return target
         except ValueError:
-            return 0
+            return datetime.datetime.now()
 
     def toggle_reminder(self):
         if self.is_running:
@@ -280,12 +283,16 @@ class MainWindow:
         self.show_colon = True
         self.tick_count = 0  # 重置节拍器
 
+        now = datetime.datetime.now()
+
         if self.is_in_active_range():
             self.is_standby = False
-            self.remaining_time = interval * 60
+            # 记录绝对的到期时间点：当前时间 + 间隔分钟数
+            self.target_datetime = now + datetime.timedelta(minutes=interval)
         else:
             self.is_standby = True
-            self.remaining_time = self.get_seconds_to_start()
+            # 记录绝对的到期时间点：明早的开始时间
+            self.target_datetime = self.get_target_datetime_for_standby()
 
         self.update_ui_text()
         self.schedule_tick() # 启动统一心跳引擎
@@ -309,19 +316,30 @@ class MainWindow:
         self.update_countdown_label()
 
     def schedule_tick(self):
-        """核心修复：100ms 统一驱动引擎"""
+        """核心修复：100ms 统一驱动引擎，使用绝对时间锚点计算"""
         if not self.is_running: return
 
         self.tick_count += 1
+        now = datetime.datetime.now()
 
-        # 1. 严格的时间扣减：每 10 次 tick (1000ms) 走 1 秒
+        # 1. 严格基于绝对时间计算剩余秒数
+        if self.target_datetime:
+            delta = (self.target_datetime - now).total_seconds()
+            self.remaining_time = int(delta) if delta > 0 else 0
+        else:
+            self.remaining_time = 0
+
+        # 每 10 次 tick (1000ms) 检查一次是否到期
         if self.tick_count % 10 == 0:
-            if self.remaining_time > 0:
-                self.remaining_time -= 1
-            else:
+            if self.remaining_time <= 0:
                 self.is_running = False
                 self.stop_reminder()
-                NotificationWindow(self.root, self._("app_name"), self._("drink_water"), self.start_reminder)
+
+                # 修复：如果是第二天的 standby 等待结束，直接无缝进入新一轮喝水计时
+                if self.is_standby:
+                    self.start_reminder()
+                else:
+                    NotificationWindow(self.root, self._("app_name"), self._("drink_water"), self.start_reminder)
                 return
 
         # 2. 完美的呼吸动效：每 8 次 tick (800ms) 切换一次冒号

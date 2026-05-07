@@ -281,8 +281,8 @@ class SettingsWindow:
 
     def center_window(self):
         self.top.update_idletasks()
-        width = 360
-        height = self.top.winfo_reqheight() + 20
+        width = 400
+        height = self.top.winfo_reqheight() - 80
         x = (self.top.winfo_screenwidth() - width) // 2
         y = (self.top.winfo_screenheight() - height) // 2
         self.top.geometry(f"{width}x{height}+{x}+{y}")

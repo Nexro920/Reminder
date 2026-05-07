@@ -9,10 +9,12 @@ class TrayManager:
         self._ = i18n_manager.get_text
         self.icon = None
     def create_image(self):
-        """生成一个简单的图标 (蓝底白圆)"""
-        image = Image.new('RGB', (64, 64), color=(0, 128, 255))
+        """生成一个简单的动态图标 (白底蓝水滴)"""
+        image = Image.new('RGB', (64, 64), color=(255, 255, 255))
         draw = ImageDraw.Draw(image)
-        draw.ellipse((16, 16, 48, 48), fill=(255, 255, 255))
+        water_blue = (0, 128, 255)
+        draw.ellipse((16, 24, 48, 56), fill=water_blue)
+        draw.polygon([(32, 8), (16, 40), (48, 40)], fill=water_blue)
         return image
     def on_toggle(self, icon, item):
         """向主线程发送恢复/隐藏窗口事件"""
